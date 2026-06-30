@@ -1,0 +1,169 @@
+# ============================================================================
+# AI Explainer Channel — Pipeline Configuration
+# ============================================================================
+
+# -- Paths ------------------------------------------------------------------
+paths:
+  project_root: "."                          # Relative to where orchestrator runs
+  clips_dir: "./clips"
+  audio_dir: "./audio"
+  images_dir: "./images"
+  captions_dir: "./captions"
+  output_dir: "./output"
+  thumbnails_dir: "./thumbnails"
+  topics_queue: "./topics/queue.json"
+  topics_approved: "./topics/approved"
+  topics_completed: "./topics/completed"
+  clip_index: "./clip_index.json"
+  prompts_dir: "./prompts"
+  subtitles_dir: "./rick_and_morty_subtitles/Subtitles_Allinone"
+  vector_db_dir: "./vector_db"
+  theories_db: "./topics/theories.json"
+  wiki_db: "./topics/wiki.json"
+  episode_index: "./episode_index.json"
+  research_cache_dir: "./research_cache"
+
+# -- LLM (Language Model) -----------------------------------------------------
+llm:
+  engine: "gemini"                           # "ollama" or "gemini"
+  ollama:
+    model: "llama3.1:8b"                       # or "qwen2.5:7b", "mistral"
+    base_url: "http://localhost:11434"          # Ollama default
+    temperature: 0.8                           # Slightly creative
+    max_tokens: 4096
+    timeout_seconds: 300                       # 5 min timeout for CPU inference
+  gemini:
+    model: "gemini-2.5-flash"                  # Works perfectly with 200 OK on new key
+    api_key: "${GEMINI_API_KEY}"               # Loaded safely from .env
+    temperature: 0.8
+    max_tokens: 4096
+
+# -- TTS (Text-to-Speech) ---------------------------------------------------
+tts:
+  engine: "kokoro"                           # "kokoro" for standalone CPU fast TTS, "piper" for local dev, "xtts" or "fish_speech" for Kaggle
+  kokoro:
+    voice: "af_bella"                        # Default voice
+    speed: 1.0
+    lang: "a"                                # 'a' for American English
+  piper:
+    model: "en_US-lessac-medium"             # Good default Piper voice
+    output_format: "wav"
+    sample_rate: 22050
+  xtts:
+    model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    reference_audio: null                    # Path to 10-sec reference .wav for voice cloning
+    language: "en"
+  fish_speech:
+    model: "fish-speech-1.4"
+    reference_audio: null
+    language: "en"
+
+# -- Captioning (faster-whisper) ---------------------------------------------
+captioning:
+  model_size: "small"                        # "tiny", "base", "small", "medium"
+  compute_type: "int8"                       # CPU-optimized
+  language: "en"
+  word_timestamps: true
+
+# -- Video Assembly ----------------------------------------------------------
+video:
+  # YouTube Shorts format
+  width: 1080
+  height: 1920
+  fps: 30
+  codec: "libx264"
+  audio_codec: "aac"
+  pixel_format: "yuv420p"
+  max_duration_seconds: 59                   # Shorts limit (<60s)
+  target_duration_seconds: 45                # Aim for ~45s sweet spot
+
+  # Caption styling (TikTok-style word-by-word)
+  captions:
+    font: "assets/fonts/BebasNeue.ttf"               # Bolder and slightly italic
+    font_size: 68                            # Slightly larger
+    font_color: "white"
+    highlight_color: "#FFD700"               # Gold for active word
+    outline_color: "black"
+    outline_width: 4
+    position: "bottom"                       # bottom third of screen
+    margin_bottom: 450                       # Increased to stay in the blur zone (above YT UI)
+    words_per_group: 4                       # Show 3-5 words at a time
+
+  # Ken Burns effect for static images / clips
+  ken_burns:
+    enabled: true
+    zoom_range: [1.0, 1.15]                  # Subtle 15% zoom
+    pan_speed: 0.02                          # Slow pan
+
+  # Background music
+  bgm:
+    enabled: true
+    volume_db: -20                           # Relative to narration
+    tracks_dir: "./assets/bgm"               # Put royalty-free tracks here
+    fade_in_seconds: 1.0
+    fade_out_seconds: 2.0
+
+# -- Thumbnail Generation ---------------------------------------------------
+thumbnail:
+  width: 1080
+  height: 1920
+  font: "Arial"
+  font_size: 80
+  font_color: "white"
+  outline_color: "black"
+  outline_width: 4
+  overlay_opacity: 0.4                       # Dark overlay for text readability
+  text_position: "center"                    # Where to place the topic text
+
+# -- Publishing (YouTube API) -----------------------------------------------
+publishing:
+  credentials_file: "./config/youtube_credentials.json"
+  token_file: "./config/youtube_token.json"
+  default_category_id: "24"                  # Entertainment
+  default_privacy: "private"                 # Upload as private, then schedule
+  made_for_kids: false
+  notify_subscribers: true
+  default_language: "en"
+  # Schedule settings
+  schedule:
+    enabled: true
+    preferred_times:                          # UTC times for publishing
+      - "06:00"                              # ~11:30 AM IST
+      - "14:00"                              # ~7:30 PM IST
+    timezone: "Asia/Kolkata"
+
+# -- Clip Matching -----------------------------------------------------------
+clip_matching:
+  strategy: "keyword"                        # "keyword" (fast) or "llm" (better but slower)
+  keyword_match_threshold: 1                 # Minimum keyword matches to count
+  cooldown_window: 10
+  cooldown_penalty: -50.0
+  prefer_adjacent_episode: true
+  fallback: "ai_image"                       # "ai_image", "generic_broll", or "black"
+  max_clip_duration_seconds: 5               # Don't use clips longer than this per segment
+  min_clip_duration_seconds: 1.3             # Minimum clip length
+
+# -- Web Research (for script verification) ---------------------------------
+web_research:
+  enabled: true
+  engine: "duckduckgo"                         # "duckduckgo", "brave", "serper"
+  max_results_per_query: 5
+  max_queries_per_topic: 3
+  api_key: null                                # Required for brave/serper only
+  cache_results: true
+  cache_dir: "./research_cache"
+  cache_ttl_days: 7                            # Re-research topics older than this
+
+# -- Script Verification ----------------------------------------------------
+verification:
+  enabled: true
+  max_retries: 2                               # Max correction loops per script
+  min_score: 7                                 # Regenerate from scratch if below this
+  verifier_model: null                         # null = same as llm.model
+  save_dossier: true                           # Save research dossier alongside scripts
+  save_verification_log: true                  # Save verifier output for debugging
+
+# -- Episode Index -----------------------------------------------------------
+episode_index:
+  path: "./episode_index.json"
+  auto_enrich_clips: true                      # Add episode data to clip_index on first run
